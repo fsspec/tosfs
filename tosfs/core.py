@@ -48,13 +48,16 @@ from tosfs.consts import (
     MPU_PART_SIZE_THRESHOLD,
     PART_MAX_SIZE,
     PUT_OBJECT_OPERATION_SMALL_FILE_THRESHOLD,
+    TOS_BUCKET_TYPE_FNS,
+    TOS_BUCKET_TYPE_HNS,
     TOS_SERVER_STATUS_CODE_NOT_FOUND,
     TOSFS_LOG_FORMAT,
 )
 from tosfs.exceptions import TosfsError
 from tosfs.fsspec_utils import glob_translate
+from tosfs.models import DeletingObject
 from tosfs.mpu import MultipartUploader
-from tosfs.retry import retryable_func_executor
+from tosfs.retry import CONFLICT_CODE, retryable_func_executor
 from tosfs.tag import BucketTagMgr
 from tosfs.utils import find_bucket_key, get_brange
 
@@ -512,10 +515,23 @@ class TosFileSystem(FsspecCompatibleFS):
         if not key:
             return self._bucket_info(bucket)
 
-        if info := self._object_info(bucket, key, version_id):
-            return info
+        bucket_type = self._get_bucket_type(bucket)
+        if bucket_type == TOS_BUCKET_TYPE_FNS:
+            result = self._object_info(bucket, key, version_id)
 
-        return self._get_dir_info(bucket, key, path, fullpath)
+            if not result:
+                result = self._get_dir_info(bucket, key, fullpath)
+        else:
+            # Priority is given to judging dir, followed by file.
+            result = self._get_dir_info(bucket, key, fullpath)
+
+            if not result:
+                result = self._object_info(bucket, key, version_id)
+
+        if not result:
+            raise FileNotFoundError(f"Can not get information for path: {path}")
+
+        return result
 
     def exists(self, path: str, **kwargs: Any) -> bool:
         """Check if a path exists in the TOS.
@@ -577,16 +593,7 @@ class TosFileSystem(FsspecCompatibleFS):
                     )
                 except TosServerError as ex:
                     if e.status_code == TOS_SERVER_STATUS_CODE_NOT_FOUND:
-                        resp = retryable_func_executor(
-                            lambda: self.tos_client.list_objects_type2(
-                                bucket,
-                                key.rstrip("/") + "/",
-                                start_after=key.rstrip("/") + "/",
-                                max_keys=1,
-                            ),
-                            max_retry_num=self.max_retry_num,
-                        )
-                        return len(resp.contents) > 0
+                        return self._prefix_search_for_exists(bucket, key)
                     else:
                         raise ex
             else:
@@ -830,14 +837,24 @@ class TosFileSystem(FsspecCompatibleFS):
         key = key.rstrip("/") + "/"
 
         try:
-            return retryable_func_executor(
-                lambda: self.tos_client.head_object(bucket, key) and True,
+            resp = retryable_func_executor(
+                lambda: self.tos_client.head_object(bucket, key),
                 max_retry_num=self.max_retry_num,
             )
+            if self._is_fns_bucket(bucket):
+                return True
+            else:
+                if "x-tos-directory" not in resp.header._store:
+                    return False
+                return resp.header._store["x-tos-directory"][1].lower() == "true"
         except TosClientError as e:
             raise e
         except TosServerError as e:
-            if e.status_code == TOS_SERVER_STATUS_CODE_NOT_FOUND:
+            if e.status_code == TOS_SERVER_STATUS_CODE_NOT_FOUND or (
+                self._get_bucket_type(bucket) == TOS_BUCKET_TYPE_HNS
+                and e.status_code == CONFLICT_CODE
+                and e.header._store["x-tos-ec"][1] == "0026-00000020"
+            ):
                 return False
             else:
                 raise e
@@ -866,10 +883,16 @@ class TosFileSystem(FsspecCompatibleFS):
             return False
 
         try:
-            return retryable_func_executor(
-                lambda: self.tos_client.head_object(bucket, key) and True,
+            resp = retryable_func_executor(
+                lambda: self.tos_client.head_object(bucket, key),
                 max_retry_num=self.max_retry_num,
             )
+            if self._is_fns_bucket(bucket):
+                return True
+            else:
+                if "x-tos-directory" not in resp.header._store:
+                    return True
+                return resp.header._store["x-tos-directory"][1].lower() != "true"
         except TosClientError as e:
             raise e
         except TosServerError as e:
@@ -1226,14 +1249,21 @@ class TosFileSystem(FsspecCompatibleFS):
             If there is an unknown error while copying the file.
 
         """
+        path1 = self._strip_protocol(path1)
+        path2 = self._strip_protocol(path2)
         if path1 == path2:
             logger.warning("Source and destination are the same: %s", path1)
             return
 
-        path1 = self._strip_protocol(path1)
+        if self.isdir(path1) and self.isdir(path2):
+            return
+
         bucket, key, vers = self._split_path(path1)
 
         info = self.info(path1, bucket, key, version_id=vers)
+        if not info:
+            raise FileNotFoundError(f"Can not get information for path: {path1}")
+
         if info["type"] == "directory":
             logger.warning("Do not support copy directory %s.", path1)
             return
@@ -1354,16 +1384,53 @@ class TosFileSystem(FsspecCompatibleFS):
     ########################  private methods  ########################
 
     def _list_and_batch_delete_objs(self, bucket: str, key: str) -> None:
+        bucket_type = self._get_bucket_type(bucket)
         is_truncated = True
         continuation_token = ""
         all_results = []
 
-        class DeletingObject:
-            def __init__(self, key: str, version_id: Optional[str] = None):
-                self.key = key
-                self.version_id = version_id
+        if bucket_type == TOS_BUCKET_TYPE_FNS:
 
-        def delete_objects(deleting_objects: List[DeletingObject]) -> None:
+            def _call_list_objects(
+                continuation_token: str = "",
+            ) -> ListObjectType2Output:
+                return retryable_func_executor(
+                    lambda: self.tos_client.list_objects_type2(
+                        bucket,
+                        prefix=key.rstrip("/") + "/",
+                        max_keys=LS_OPERATION_DEFAULT_MAX_ITEMS,
+                        continuation_token=continuation_token,
+                    ),
+                    max_retry_num=self.max_retry_num,
+                )
+
+            while is_truncated:
+                resp = _call_list_objects(continuation_token)
+                is_truncated = resp.is_truncated
+                continuation_token = resp.next_continuation_token
+                all_results = resp.contents
+
+                deleting_objects = [
+                    DeletingObject(o.key if hasattr(o, "key") else o.prefix)
+                    for o in all_results
+                ]
+
+                if deleting_objects:
+                    self._delete_objects(bucket, deleting_objects)
+        elif bucket_type == TOS_BUCKET_TYPE_HNS:
+            all_results = self._list_and_collect_objects(
+                bucket, bucket_type, key.rstrip("/") + "/"
+            )
+            if all_results:
+                self._delete_objects(bucket, all_results)
+        else:
+            raise ValueError(f"Unsupported bucket type: {bucket_type}")
+
+    def _delete_objects(
+        self, bucket: str, deleting_objects: list[DeletingObject]
+    ) -> None:
+        bucket_type = self._get_bucket_type(bucket)
+        if bucket_type == TOS_BUCKET_TYPE_FNS:
             delete_resp = retryable_func_executor(
                 lambda: self.tos_client.delete_multi_objects(
                     bucket, deleting_objects, quiet=True
@@ -1373,35 +1440,71 @@ class TosFileSystem(FsspecCompatibleFS):
             if delete_resp.error:
                 for d in delete_resp.error:
                     logger.warning("Deleted object: %s failed", d)
+        else:
+
+            def _call_delete_object(obj: DeletingObject) -> None:
+                retryable_func_executor(
+                    lambda: self.tos_client.delete_object(bucket, obj.key),
+                    max_retry_num=self.max_retry_num,
+                )
+
+            # Preferentially delete subpaths with longer keys
+            for obj in sorted(deleting_objects, key=lambda x: len(x.key), reverse=True):
+                _call_delete_object(obj)
+
+    def _list_and_collect_objects(
+        self,
+        bucket: str,
+        bucket_type: str,
+        prefix: str,
+        collected_objects: Optional[List[DeletingObject]] = None,
+    ) -> List[DeletingObject]:
+
+        if collected_objects is None:
+            collected_objects = []
+
+        collected_keys = {obj.key for obj in collected_objects}
+
+        is_truncated = True
+        continuation_token = ""
 
         while is_truncated:
 
             def _call_list_objects_type2(
-                continuation_token: str = continuation_token,
+                continuation_token: str = continuation_token, prefix: str = prefix
             ) -> ListObjectType2Output:
                 return self.tos_client.list_objects_type2(
                     bucket,
-                    prefix=key.rstrip("/") + "/",
+                    prefix=prefix,
                     max_keys=LS_OPERATION_DEFAULT_MAX_ITEMS,
                     continuation_token=continuation_token,
+                    delimiter="/" if bucket_type == TOS_BUCKET_TYPE_HNS else None,
                 )
 
             resp = retryable_func_executor(
                 _call_list_objects_type2,
-                args=(continuation_token,),
                 max_retry_num=self.max_retry_num,
             )
             is_truncated = resp.is_truncated
             continuation_token = resp.next_continuation_token
-            all_results = resp.contents
 
-            deleting_objects = [
-                DeletingObject(o.key if hasattr(o, "key") else o.prefix)
-                for o in all_results
-            ]
+            for obj in resp.contents:
+                key = obj.key if hasattr(obj, "key") else obj.prefix
+                if key not in collected_keys:
+                    collected_objects.append(DeletingObject(key=key))
+                    collected_keys.add(key)
 
-            if deleting_objects:
-                delete_objects(deleting_objects)
+            for common_prefix in resp.common_prefixes:
+                key = common_prefix.prefix
+                if key not in collected_keys:
+                    collected_objects.append(DeletingObject(key=key))
+                    collected_keys.add(key)
+                if bucket_type == TOS_BUCKET_TYPE_HNS:
+                    self._list_and_collect_objects(
+                        bucket, bucket_type, common_prefix.prefix, collected_objects
+                    )
+
+        return collected_objects
 
     def _copy_basic(self, path1: str, path2: str, **kwargs: Any) -> None:
         """Copy file between locations on tos.
@@ -1581,13 +1684,18 @@ class TosFileSystem(FsspecCompatibleFS):
         self, key: str, path: str, prefix: str, withdirs: bool, kwargs: Any
     ) -> List[dict]:
         out = self._ls_dirs_and_files(
-            path, delimiter="", include_self=True, prefix=prefix, **kwargs
+            path,
+            delimiter="",
+            include_self=True,
+            prefix=prefix,
+            recursive=True,
         )
         if not out and key:
             try:
                 out = [self.info(path)]
             except FileNotFoundError:
                 out = []
+
         dirs = {
             self._parent(o["name"]): {
                 "Key": self._parent(o["name"]).rstrip("/"),
@@ -1680,7 +1788,7 @@ class TosFileSystem(FsspecCompatibleFS):
 
     def _object_info(
         self, bucket: str, key: str, version_id: Optional[str] = None
-    ) -> dict:
+    ) -> Optional[dict]:
         """Get the information of an object.
 
         Parameters
@@ -1733,16 +1841,20 @@ class TosFileSystem(FsspecCompatibleFS):
         except TosClientError as e:
             raise e
         except TosServerError as e:
-            if e.status_code == TOS_SERVER_STATUS_CODE_NOT_FOUND:
+            if e.status_code == TOS_SERVER_STATUS_CODE_NOT_FOUND or (
+                self._get_bucket_type(bucket) == TOS_BUCKET_TYPE_HNS
+                and e.status_code == CONFLICT_CODE
+                and e.header._store["x-tos-ec"][1] == "0026-00000020"
+            ):
                 pass
             else:
                 raise e
         except Exception as e:
             raise TosfsError(f"Tosfs failed with unknown error: {e}") from e
 
-        return {}
+        return None
 
-    def _get_dir_info(self, bucket: str, key: str, path: str, fullpath: str) -> dict:
+    def _get_dir_info(self, bucket: str, key: str, fullpath: str) -> Optional[dict]:
         try:
             # We check to see if the path is a directory by attempting to list its
             # contexts. If anything is found, it is indeed a directory
@@ -1765,8 +1877,8 @@ class TosFileSystem(FsspecCompatibleFS):
                     "type": "directory",
                 }
 
-            raise FileNotFoundError(path)
-        except (TosClientError, TosServerError, FileNotFoundError) as e:
+            return None
+        except (TosClientError, TosServerError) as e:
             raise e
         except Exception as e:
             raise TosfsError(f"Tosfs failed with unknown error: {e}") from e
@@ -1862,6 +1974,7 @@ class TosFileSystem(FsspecCompatibleFS):
         prefix: str = "",
         include_self: bool = False,
         versions: bool = False,
+        recursive: bool = False,
     ) -> List[dict]:
         bucket, key, _ = self._split_path(path)
         if not prefix:
@@ -1872,6 +1985,8 @@ class TosFileSystem(FsspecCompatibleFS):
         logger.debug("Get directory listing for %s", path)
         dirs = []
         files = []
+        seen_names = set()
+
         for obj in self._ls_objects(
             bucket,
             max_items=max_items,
@@ -1879,13 +1994,26 @@ class TosFileSystem(FsspecCompatibleFS):
             prefix=prefix,
             include_self=include_self,
             versions=versions,
+            recursive=recursive,
         ):
-            if isinstance(obj, CommonPrefixInfo) and delimiter == "/":
-                dirs.append(self._fill_dir_info(bucket, obj))
+            if isinstance(obj, CommonPrefixInfo):
+                dir_info = self._fill_dir_info(bucket, obj)
+                dir_name = dir_info["name"]
+                if dir_name not in seen_names:
+                    dirs.append(dir_info)
+                    seen_names.add(dir_name)
             elif obj.key.endswith("/"):
-                dirs.append(self._fill_dir_info(bucket, None, obj.key))
+                dir_info = self._fill_dir_info(bucket, None, obj.key)
+                dir_name = dir_info["name"]
+                if dir_name not in seen_names:
+                    dirs.append(dir_info)
+                    seen_names.add(dir_name)
             else:
-                files.append(self._fill_file_info(obj, bucket, versions))
+                file_info = self._fill_file_info(obj, bucket, versions)
+                file_name = file_info["name"]
+                if file_name not in seen_names:
+                    files.append(file_info)
+                    seen_names.add(file_name)
         files += dirs
 
         return files
@@ -1898,6 +2026,7 @@ class TosFileSystem(FsspecCompatibleFS):
         prefix: str = "",
         include_self: bool = False,
         versions: bool = False,
+        recursive: bool = False,
     ) -> List[Union[CommonPrefixInfo, ListedObject, ListedObjectVersion]]:
         if versions:
             raise ValueError(
@@ -1905,35 +2034,112 @@ class TosFileSystem(FsspecCompatibleFS):
                 "not version aware."
             )
 
+        bucket_type = self._get_bucket_type(bucket)
         all_results = []
-        is_truncated = True
 
-        continuation_token = ""
-        while is_truncated:
+        if recursive and bucket_type == TOS_BUCKET_TYPE_HNS:
 
-            def _call_list_objects_type2(
-                continuation_token: str = continuation_token,
-            ) -> ListObjectType2Output:
-                return self.tos_client.list_objects_type2(
-                    bucket,
-                    prefix,
-                    start_after=prefix if not include_self else None,
-                    delimiter=delimiter,
-                    max_keys=max_items,
-                    continuation_token=continuation_token,
+            def _recursive_list(bucket: str, prefix: str) -> None:
+                resp = retryable_func_executor(
+                    lambda: self.tos_client.list_objects_type2(
+                        bucket,
+                        prefix=prefix,
+                        delimiter="/",
+                        max_keys=max_items,
+                    ),
+                    max_retry_num=self.max_retry_num,
                 )
 
-            resp = retryable_func_executor(
-                _call_list_objects_type2,
-                args=(continuation_token,),
-                max_retry_num=self.max_retry_num,
-            )
-            is_truncated = resp.is_truncated
-            continuation_token = resp.next_continuation_token
+                all_results.extend(resp.contents + resp.common_prefixes)
+                for common_prefix in resp.common_prefixes:
+                    _recursive_list(bucket, common_prefix.prefix)
 
-            all_results.extend(resp.contents + resp.common_prefixes)
+            _recursive_list(bucket, prefix)
+        else:
+            is_truncated = True
+
+            continuation_token = ""
+            while is_truncated:
+
+                def _call_list_objects_type2(
+                    continuation_token: str = continuation_token,
+                ) -> ListObjectType2Output:
+                    return self.tos_client.list_objects_type2(
+                        bucket,
+                        prefix,
+                        start_after=prefix if not include_self else None,
+                        delimiter=delimiter,
+                        max_keys=max_items,
+                        continuation_token=continuation_token,
+                    )
+
+                resp = retryable_func_executor(
+                    _call_list_objects_type2,
+                    args=(continuation_token,),
+                    max_retry_num=self.max_retry_num,
+                )
+                is_truncated = resp.is_truncated
+                continuation_token = resp.next_continuation_token
+
+                all_results.extend(resp.contents + resp.common_prefixes)
+
+        # if bucket_type == TOS_BUCKET_TYPE_FNS:
+        #
+        # elif bucket_type == TOS_BUCKET_TYPE_HNS:
+        #
+
+        # else:
+        #     raise ValueError(f"Unsupported bucket type: {bucket_type}")
 
         return all_results
+
+    def _prefix_search_for_exists(self, bucket: str, key: str) -> bool:
+        bucket_type = self._get_bucket_type(bucket)
+
+        if bucket_type == TOS_BUCKET_TYPE_FNS:
+            resp = retryable_func_executor(
+                lambda: self.tos_client.list_objects_type2(
+                    bucket,
+                    key.rstrip("/") + "/",
+                    start_after=key.rstrip("/") + "/",
+                    max_keys=1,
+                ),
+                max_retry_num=self.max_retry_num,
+            )
+            return len(resp.contents) > 0
+        elif bucket_type == TOS_BUCKET_TYPE_HNS:
+
+            def search_in_common_prefixes(bucket: str, prefix: str) -> bool:
+                resp = retryable_func_executor(
+                    lambda: self.tos_client.list_objects_type2(
+                        bucket,
+                        prefix,
+                        delimiter="/",
+                        max_keys=1,
+                    ),
+                    max_retry_num=self.max_retry_num,
+                )
+                if len(resp.contents) > 0:
+                    return True
+                for common_prefix in resp.common_prefixes:
+                    if search_in_common_prefixes(bucket, common_prefix):
+                        return True
+                return False
+
+            resp = retryable_func_executor(
+                lambda: self.tos_client.list_objects_type2(
+                    bucket,
+                    key.rstrip("/") + "/",
+                    delimiter="/",
+                    max_keys=1,
+                ),
+                max_retry_num=self.max_retry_num,
+            )
+            if len(resp.contents) > 0:
+                return True
+            return search_in_common_prefixes(bucket, key.rstrip("/") + "/")
+        else:
+            raise ValueError(f"Unsupported bucket type {bucket_type}")
 
     def _split_path(self, path: str) -> Tuple[str, str, Optional[str]]:
         """Normalise tos path string into bucket and key.
@@ -1968,6 +2174,19 @@ class TosFileSystem(FsspecCompatibleFS):
             key,
             version_id if self.version_aware and version_id else None,
         )
+
+    def _get_bucket_type(self, bucket: str) -> str:
+        bucket_type = self.tos_client._get_bucket_type(bucket)
+        if not bucket_type:
+            return TOS_BUCKET_TYPE_FNS
+
+        return bucket_type
+
+    def _is_hns_bucket(self, bucket: str) -> bool:
+        return self._get_bucket_type(bucket) == TOS_BUCKET_TYPE_HNS
+
+    def _is_fns_bucket(self, bucket: str) -> bool:
+        return self._get_bucket_type(bucket) == TOS_BUCKET_TYPE_FNS
 
     def _init_tag_manager(self) -> None:
         auth = self.tos_client.auth
