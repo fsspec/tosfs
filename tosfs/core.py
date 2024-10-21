@@ -2083,14 +2083,6 @@ class TosFileSystem(FsspecCompatibleFS):
 
                 all_results.extend(resp.contents + resp.common_prefixes)
 
-        # if bucket_type == TOS_BUCKET_TYPE_FNS:
-        #
-        # elif bucket_type == TOS_BUCKET_TYPE_HNS:
-        #
-
-        # else:
-        #     raise ValueError(f"Unsupported bucket type: {bucket_type}")
-
         return all_results
 
     def _prefix_search_for_exists(self, bucket: str, key: str) -> bool:
