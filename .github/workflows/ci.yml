@@ -36,6 +36,7 @@ jobs:
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
         fsspec-version: ["2023.5.0", "2024.9.0"]
+        bucket-name: ["proton-ci", "proton-ci-hns"]
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
@@ -59,5 +60,6 @@ jobs:
         echo "TOS_REGION=${{ vars.TOS_REGION }}" >> $GITHUB_ENV
         echo "TOS_ENDPOINT=${{ vars.TOS_ENDPOINT }}" >> $GITHUB_ENV
         echo "TOSFS_LOGGING_LEVEL=${{ vars.TOSFS_LOGGING_LEVEL }}" >> $GITHUB_ENV
+        echo "TOS_BUCKET=${{ matrix.bucket-name }}" >> $GITHUB_ENV
     - name: Run tests
       run: make test
