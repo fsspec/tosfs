@@ -103,10 +103,10 @@ tosfs.ls("mybucket", detail=False)
 tosfs.ls("mybucket/rootpath/", detail=False)
 
 # file read/write
-with tosfs.open('bucket/root/text.txt', mode='wb') as f:
+with tosfs.open('bucket/root/text.txt', mode='w') as f:
     f.write('hello tosfs!')
     
-with tosfs.open('bucket/root/text.txt', mode='rb') as f:
+with tosfs.open('bucket/root/text.txt', mode='r') as f:
     content = f.read()
     print(content)
 ```
