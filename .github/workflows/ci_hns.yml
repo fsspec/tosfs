@@ -35,7 +35,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
-        fsspec-version: ["2023.5.0", "2024.9.0", "2024.10.0"]
+        fsspec-version: ["2023.5.0", "2024.9.0", "2024.10.0", "2025.2.0"]
         bucket-name: ["proton-hns-ci"]
     steps:
     - uses: actions/checkout@v4
