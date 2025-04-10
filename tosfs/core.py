@@ -104,37 +104,37 @@ class TosFileSystem(FsspecCompatibleFS):
     protocol = ("tos",)
 
     def __init__(
-            self,
-            endpoint: Optional[str] = None,
-            key: str = "",
-            secret: str = "",
-            region: Optional[str] = None,
-            session_token: Optional[str] = None,
-            max_retry_num: int = 20,
-            max_connections: int = 1024,
-            connection_timeout: int = 10,
-            socket_timeout: int = 30,
-            high_latency_log_threshold: int = 100,
-            version_aware: bool = False,
-            credentials_provider: Optional[object] = None,
-            default_block_size: Optional[int] = None,
-            default_fill_cache: bool = True,
-            default_cache_type: str = "readahead",
-            multipart_staging_dirs: str = tempfile.mkdtemp(),
-            multipart_size: int = 8 << 20,
-            multipart_thread_pool_size: int = max(2, os.cpu_count() or 1),
-            multipart_threshold: int = 5 << 20,
-            enable_crc: bool = True,
-            enable_verify_ssl: bool = True,
-            dns_cache_timeout: int = 0,
-            proxy_host: Optional[str] = None,
-            proxy_port: Optional[int] = None,
-            proxy_username: Optional[str] = None,
-            proxy_password: Optional[str] = None,
-            disable_encoding_meta: Optional[bool] = None,
-            except100_continue_threshold: int = 65536,
-            endpoint_url: Optional[str] = None,  # Deprecated parameter
-            **kwargs: Any,
+        self,
+        endpoint: Optional[str] = None,
+        key: str = "",
+        secret: str = "",
+        region: Optional[str] = None,
+        session_token: Optional[str] = None,
+        max_retry_num: int = 20,
+        max_connections: int = 1024,
+        connection_timeout: int = 10,
+        socket_timeout: int = 30,
+        high_latency_log_threshold: int = 100,
+        version_aware: bool = False,
+        credentials_provider: Optional[object] = None,
+        default_block_size: Optional[int] = None,
+        default_fill_cache: bool = True,
+        default_cache_type: str = "readahead",
+        multipart_staging_dirs: str = tempfile.mkdtemp(),
+        multipart_size: int = 8 << 20,
+        multipart_thread_pool_size: int = max(2, os.cpu_count() or 1),
+        multipart_threshold: int = 5 << 20,
+        enable_crc: bool = True,
+        enable_verify_ssl: bool = True,
+        dns_cache_timeout: int = 0,
+        proxy_host: Optional[str] = None,
+        proxy_port: Optional[int] = None,
+        proxy_username: Optional[str] = None,
+        proxy_password: Optional[str] = None,
+        disable_encoding_meta: Optional[bool] = None,
+        except100_continue_threshold: int = 65536,
+        endpoint_url: Optional[str] = None,  # Deprecated parameter
+        **kwargs: Any,
     ) -> None:
         """Initialise the TosFileSystem.
 
@@ -266,7 +266,7 @@ class TosFileSystem(FsspecCompatibleFS):
             raise ValueError("Currently, version_aware is not supported.")
 
         self.tag_enabled = (
-                os.environ.get(ENV_NAME_TOS_BUCKET_TAG_ENABLE, "true").lower() == "true"
+            os.environ.get(ENV_NAME_TOS_BUCKET_TAG_ENABLE, "true").lower() == "true"
         )
         if self.tag_enabled:
             logger.debug("The tos bucket tag is enabled.")
@@ -274,7 +274,7 @@ class TosFileSystem(FsspecCompatibleFS):
 
         self.version_aware = version_aware
         self.default_block_size = (
-                default_block_size or FILE_OPERATION_READ_WRITE_BUFFER_SIZE
+            default_block_size or FILE_OPERATION_READ_WRITE_BUFFER_SIZE
         )
         self.default_fill_cache = default_fill_cache
         self.default_cache_type = default_cache_type
@@ -290,15 +290,15 @@ class TosFileSystem(FsspecCompatibleFS):
         super().__init__(**kwargs)
 
     def _open(
-            self,
-            path: str,
-            mode: str = "rb",
-            block_size: Optional[int] = None,
-            version_id: Optional[str] = None,
-            fill_cache: Optional[bool] = None,
-            cache_type: Optional[str] = None,
-            autocommit: bool = True,
-            **kwargs: Any,
+        self,
+        path: str,
+        mode: str = "rb",
+        block_size: Optional[int] = None,
+        version_id: Optional[str] = None,
+        fill_cache: Optional[bool] = None,
+        cache_type: Optional[str] = None,
+        autocommit: bool = True,
+        **kwargs: Any,
     ) -> AbstractBufferedFile:
         """Open a file for reading or writing.
 
@@ -355,11 +355,11 @@ class TosFileSystem(FsspecCompatibleFS):
         )
 
     def ls(
-            self,
-            path: str,
-            detail: bool = False,
-            versions: bool = False,
-            **kwargs: Union[str, bool, float, None],
+        self,
+        path: str,
+        detail: bool = False,
+        versions: bool = False,
+        **kwargs: Union[str, bool, float, None],
     ) -> Union[List[dict], List[str]]:
         """List objects under the given path.
 
@@ -416,13 +416,13 @@ class TosFileSystem(FsspecCompatibleFS):
         return files if detail else sorted([o["name"] for o in files])
 
     def ls_iterate(
-            self,
-            path: str,
-            detail: bool = False,
-            versions: bool = False,
-            batch_size: int = LS_OPERATION_DEFAULT_MAX_ITEMS,
-            recursive: bool = False,
-            **kwargs: Union[str, bool, float, None],
+        self,
+        path: str,
+        detail: bool = False,
+        versions: bool = False,
+        batch_size: int = LS_OPERATION_DEFAULT_MAX_ITEMS,
+        recursive: bool = False,
+        **kwargs: Union[str, bool, float, None],
     ) -> Generator[Union[List[dict], List[str]], None, None]:
         """List objects under the given path in batches then returns an iterator.
 
@@ -471,7 +471,7 @@ class TosFileSystem(FsspecCompatibleFS):
         while is_truncated:
 
             def _call_list_objects_type2(
-                    continuation_token: str = continuation_token,
+                continuation_token: str = continuation_token,
             ) -> ListObjectType2Output:
                 return self.tos_client.list_objects_type2(
                     bucket,
@@ -505,11 +505,11 @@ class TosFileSystem(FsspecCompatibleFS):
             yield batch
 
     def info(
-            self,
-            path: str,
-            bucket: Optional[str] = None,
-            key: Optional[str] = None,
-            version_id: Optional[str] = None,
+        self,
+        path: str,
+        bucket: Optional[str] = None,
+        key: Optional[str] = None,
+        version_id: Optional[str] = None,
     ) -> dict:
         """Give details of entry at path.
 
@@ -666,7 +666,7 @@ class TosFileSystem(FsspecCompatibleFS):
         )
 
     def rm(
-            self, path: str, recursive: bool = False, maxdepth: Optional[int] = None
+        self, path: str, recursive: bool = False, maxdepth: Optional[int] = None
     ) -> None:
         """Delete files.
 
@@ -906,14 +906,14 @@ class TosFileSystem(FsspecCompatibleFS):
             raise TosfsError(f"Tosfs failed with unknown error: {e}") from e
 
     def put(
-            self,
-            lpath: str,
-            rpath: str,
-            recursive: bool = False,
-            callback: Any = None,
-            maxdepth: Optional[int] = None,
-            disable_glob: bool = False,
-            **kwargs: Any,
+        self,
+        lpath: str,
+        rpath: str,
+        recursive: bool = False,
+        callback: Any = None,
+        maxdepth: Optional[int] = None,
+        disable_glob: bool = False,
+        **kwargs: Any,
     ) -> None:
         """Copy file(s) from local.
 
@@ -928,11 +928,11 @@ class TosFileSystem(FsspecCompatibleFS):
         )
 
     def put_file(
-            self,
-            lpath: str,
-            rpath: str,
-            chunksize: int = FILE_OPERATION_READ_WRITE_BUFFER_SIZE,
-            **kwargs: Any,
+        self,
+        lpath: str,
+        rpath: str,
+        chunksize: int = FILE_OPERATION_READ_WRITE_BUFFER_SIZE,
+        **kwargs: Any,
     ) -> None:
         """Put a file from local to TOS.
 
@@ -1019,13 +1019,13 @@ class TosFileSystem(FsspecCompatibleFS):
                 )
 
     def get(
-            self,
-            rpath: str,
-            lpath: str,
-            recursive: bool = False,
-            callback: Any = None,
-            maxdepth: Optional[int] = None,
-            **kwargs: Any,
+        self,
+        rpath: str,
+        lpath: str,
+        recursive: bool = False,
+        callback: Any = None,
+        maxdepth: Optional[int] = None,
+        **kwargs: Any,
     ) -> None:
         """Copy file(s) to local.
 
@@ -1065,12 +1065,12 @@ class TosFileSystem(FsspecCompatibleFS):
 
             source_is_file = len(rpaths) == 1
             dest_is_dir = isinstance(lpath, str) and (
-                    trailing_sep(lpath) or LocalFileSystem().isdir(lpath)
+                trailing_sep(lpath) or LocalFileSystem().isdir(lpath)
             )
 
             exists = source_is_str and (
-                    (has_magic(rpath) and source_is_file)
-                    or (not has_magic(rpath) and dest_is_dir and not trailing_sep(rpath))
+                (has_magic(rpath) and source_is_file)
+                or (not has_magic(rpath) and dest_is_dir and not trailing_sep(rpath))
             )
             lpaths = other_paths(
                 rpaths,
@@ -1144,12 +1144,12 @@ class TosFileSystem(FsspecCompatibleFS):
         retryable_func_executor(download_file)
 
     def walk(
-            self,
-            path: str,
-            maxdepth: Optional[int] = None,
-            topdown: bool = True,
-            on_error: str = "omit",
-            **kwargs: Any,
+        self,
+        path: str,
+        maxdepth: Optional[int] = None,
+        topdown: bool = True,
+        on_error: str = "omit",
+        **kwargs: Any,
     ) -> Generator[str, List[str], List[str]]:
         """List objects under the given path.
 
@@ -1180,13 +1180,13 @@ class TosFileSystem(FsspecCompatibleFS):
         )
 
     def find(
-            self,
-            path: str,
-            maxdepth: Optional[int] = None,
-            withdirs: bool = False,
-            detail: bool = False,
-            prefix: str = "",
-            **kwargs: Any,
+        self,
+        path: str,
+        maxdepth: Optional[int] = None,
+        withdirs: bool = False,
+        detail: bool = False,
+        prefix: str = "",
+        **kwargs: Any,
     ) -> Union[List[str], dict]:
         """Find all files or dirs with conditions.
 
@@ -1232,7 +1232,7 @@ class TosFileSystem(FsspecCompatibleFS):
                 withdirs=withdirs,
                 detail=detail,
                 **kwargs,
-                )
+            )
 
         out = self._find_file_dir(key, path, prefix, withdirs, kwargs)
 
@@ -1242,10 +1242,10 @@ class TosFileSystem(FsspecCompatibleFS):
             return [o["name"] for o in out]
 
     def expand_path(
-            self,
-            path: Union[str, List[str]],
-            recursive: bool = False,
-            maxdepth: Optional[int] = None,
+        self,
+        path: Union[str, List[str]],
+        recursive: bool = False,
+        maxdepth: Optional[int] = None,
     ) -> List[str]:
         """Expand path to a list of files.
 
@@ -1304,12 +1304,12 @@ class TosFileSystem(FsspecCompatibleFS):
         return sorted(out)
 
     def cp_file(
-            self,
-            path1: str,
-            path2: str,
-            preserve_etag: Optional[bool] = None,
-            managed_copy_threshold: Optional[int] = MANAGED_COPY_MAX_THRESHOLD,
-            **kwargs: Any,
+        self,
+        path1: str,
+        path2: str,
+        preserve_etag: Optional[bool] = None,
+        managed_copy_threshold: Optional[int] = MANAGED_COPY_MAX_THRESHOLD,
+        **kwargs: Any,
     ) -> None:
         """Copy file between locations on tos.
 
@@ -1372,12 +1372,12 @@ class TosFileSystem(FsspecCompatibleFS):
         if preserve_etag and parts_suffix:
             self._copy_etag_preserved(path1, path2, size, total_parts=int(parts_suffix))
         elif size <= min(
-                MANAGED_COPY_MAX_THRESHOLD,
-                (
-                        managed_copy_threshold
-                        if managed_copy_threshold
-                        else MANAGED_COPY_MAX_THRESHOLD
-                ),
+            MANAGED_COPY_MAX_THRESHOLD,
+            (
+                managed_copy_threshold
+                if managed_copy_threshold
+                else MANAGED_COPY_MAX_THRESHOLD
+            ),
         ):
             self._copy_basic(path1, path2, **kwargs)
         else:
@@ -1389,7 +1389,7 @@ class TosFileSystem(FsspecCompatibleFS):
             self._copy_managed(path1, path2, size, **kwargs)
 
     def glob(
-            self, path: str, maxdepth: Optional[int] = None, **kwargs: Any
+        self, path: str, maxdepth: Optional[int] = None, **kwargs: Any
     ) -> Collection[Any]:
         """Return list of paths matching a glob-like pattern.
 
@@ -1490,7 +1490,7 @@ class TosFileSystem(FsspecCompatibleFS):
         if bucket_type == TOS_BUCKET_TYPE_FNS:
 
             def _call_list_objects(
-                    continuation_token: str = "",
+                continuation_token: str = "",
             ) -> ListObjectType2Output:
                 return retryable_func_executor(
                     lambda: self.tos_client.list_objects_type2(
@@ -1525,7 +1525,7 @@ class TosFileSystem(FsspecCompatibleFS):
             raise ValueError(f"Unsupported bucket type: {bucket_type}")
 
     def _delete_objects(
-            self, bucket: str, deleting_objects: list[DeletingObject]
+        self, bucket: str, deleting_objects: list[DeletingObject]
     ) -> None:
         bucket_type = self._get_bucket_type(bucket)
         if bucket_type == TOS_BUCKET_TYPE_FNS:
@@ -1551,11 +1551,11 @@ class TosFileSystem(FsspecCompatibleFS):
                 _call_delete_object(obj)
 
     def _list_and_collect_objects(
-            self,
-            bucket: str,
-            bucket_type: str,
-            prefix: str,
-            collected_objects: Optional[List[DeletingObject]] = None,
+        self,
+        bucket: str,
+        bucket_type: str,
+        prefix: str,
+        collected_objects: Optional[List[DeletingObject]] = None,
     ) -> List[DeletingObject]:
 
         if collected_objects is None:
@@ -1569,7 +1569,7 @@ class TosFileSystem(FsspecCompatibleFS):
         while is_truncated:
 
             def _call_list_objects_type2(
-                    continuation_token: str = continuation_token, prefix: str = prefix
+                continuation_token: str = continuation_token, prefix: str = prefix
             ) -> ListObjectType2Output:
                 return self.tos_client.list_objects_type2(
                     bucket,
@@ -1626,7 +1626,7 @@ class TosFileSystem(FsspecCompatibleFS):
         )
 
     def _copy_etag_preserved(
-            self, path1: str, path2: str, size: int, total_parts: int, **kwargs: Any
+        self, path1: str, path2: str, size: int, total_parts: int, **kwargs: Any
     ) -> None:
         """Copy file as multiple-part while preserving the etag."""
         bucket1, key1, version1 = self._split_path(path1)
@@ -1651,9 +1651,9 @@ class TosFileSystem(FsspecCompatibleFS):
                     brange_last = size - 1
 
                 def _call_upload_part_copy(
-                        i: int = i,
-                        brange_first: int = brange_first,
-                        brange_last: int = brange_last,
+                    i: int = i,
+                    brange_first: int = brange_first,
+                    brange_last: int = brange_last,
                 ) -> UploadPartCopyOutput:
                     return self.tos_client.upload_part_copy(
                         bucket=bucket2,
@@ -1699,12 +1699,12 @@ class TosFileSystem(FsspecCompatibleFS):
             raise TosfsError(f"Copy failed ({path1} -> {path2}): {e}") from e
 
     def _copy_managed(
-            self,
-            path1: str,
-            path2: str,
-            size: int,
-            block: int = MANAGED_COPY_MAX_THRESHOLD,
-            **kwargs: Any,
+        self,
+        path1: str,
+        path2: str,
+        size: int,
+        block: int = MANAGED_COPY_MAX_THRESHOLD,
+        **kwargs: Any,
     ) -> None:
         """Copy file between locations on tos as multiple-part.
 
@@ -1729,7 +1729,7 @@ class TosFileSystem(FsspecCompatibleFS):
             upload_id = mpu.upload_id
 
             def _call_upload_part_copy(
-                    i: int, brange_first: int, brange_last: int
+                i: int, brange_first: int, brange_last: int
             ) -> UploadPartCopyOutput:
                 return self.tos_client.upload_part_copy(
                     bucket=bucket2,
@@ -1779,7 +1779,7 @@ class TosFileSystem(FsspecCompatibleFS):
             raise TosfsError(f"Copy failed ({path1} -> {path2}): {e}") from e
 
     def _find_file_dir(
-            self, key: str, path: str, prefix: str, withdirs: bool, kwargs: Any
+        self, key: str, path: str, prefix: str, withdirs: bool, kwargs: Any
     ) -> List[dict]:
         out = self._ls_dirs_and_files(
             path,
@@ -1816,12 +1816,12 @@ class TosFileSystem(FsspecCompatibleFS):
         return sorted(out, key=lambda x: x["name"])
 
     def _open_remote_file(
-            self,
-            bucket: str,
-            key: str,
-            version_id: Optional[str],
-            range_start: int,
-            **kwargs: Any,
+        self,
+        bucket: str,
+        key: str,
+        version_id: Optional[str],
+        range_start: int,
+        **kwargs: Any,
     ) -> Tuple[BinaryIO, int]:
         if "callback" in kwargs:
             kwargs.pop("callback")
@@ -1840,7 +1840,7 @@ class TosFileSystem(FsspecCompatibleFS):
             if e.status_code == INVALID_RANGE_CODE:
                 obj_info = self._object_info(bucket=bucket, key=key)
                 if obj_info and (
-                        obj_info["size"] == 0 or range_start == obj_info["size"]
+                    obj_info["size"] == 0 or range_start == obj_info["size"]
                 ):
                     return io.BytesIO(), 0
             else:
@@ -1896,7 +1896,7 @@ class TosFileSystem(FsspecCompatibleFS):
             raise TosfsError(f"Tosfs failed with unknown error: {e}") from e
 
     def _object_info(
-            self, bucket: str, key: str, version_id: Optional[str] = None
+        self, bucket: str, key: str, version_id: Optional[str] = None
     ) -> Optional[dict]:
         """Get the information of an object.
 
@@ -1951,9 +1951,9 @@ class TosFileSystem(FsspecCompatibleFS):
             raise e
         except TosServerError as e:
             if e.status_code == TOS_SERVER_STATUS_CODE_NOT_FOUND or (
-                    self._get_bucket_type(bucket) == TOS_BUCKET_TYPE_HNS
-                    and e.status_code == CONFLICT_CODE
-                    and e.header._store["x-tos-ec"][1] == "0026-00000020"
+                self._get_bucket_type(bucket) == TOS_BUCKET_TYPE_HNS
+                and e.status_code == CONFLICT_CODE
+                and e.header._store["x-tos-ec"][1] == "0026-00000020"
             ):
                 pass
             else:
@@ -2076,14 +2076,14 @@ class TosFileSystem(FsspecCompatibleFS):
         return [self._fill_bucket_info(bucket.name) for bucket in resp.buckets]
 
     def _ls_dirs_and_files(
-            self,
-            path: str,
-            max_items: int = LS_OPERATION_DEFAULT_MAX_ITEMS,
-            delimiter: str = "/",
-            prefix: str = "",
-            include_self: bool = False,
-            versions: bool = False,
-            recursive: bool = False,
+        self,
+        path: str,
+        max_items: int = LS_OPERATION_DEFAULT_MAX_ITEMS,
+        delimiter: str = "/",
+        prefix: str = "",
+        include_self: bool = False,
+        versions: bool = False,
+        recursive: bool = False,
     ) -> List[dict]:
         bucket, key, _ = self._split_path(path)
         if not prefix:
@@ -2097,13 +2097,13 @@ class TosFileSystem(FsspecCompatibleFS):
         seen_names = set()
 
         for obj in self._ls_objects(
-                bucket,
-                max_items=max_items,
-                delimiter=delimiter,
-                prefix=prefix,
-                include_self=include_self,
-                versions=versions,
-                recursive=recursive,
+            bucket,
+            max_items=max_items,
+            delimiter=delimiter,
+            prefix=prefix,
+            include_self=include_self,
+            versions=versions,
+            recursive=recursive,
         ):
             if isinstance(obj, CommonPrefixInfo):
                 dir_info = self._fill_dir_info(bucket, obj)
@@ -2128,14 +2128,14 @@ class TosFileSystem(FsspecCompatibleFS):
         return files
 
     def _ls_objects(
-            self,
-            bucket: str,
-            max_items: int = LS_OPERATION_DEFAULT_MAX_ITEMS,
-            delimiter: str = "/",
-            prefix: str = "",
-            include_self: bool = False,
-            versions: bool = False,
-            recursive: bool = False,
+        self,
+        bucket: str,
+        max_items: int = LS_OPERATION_DEFAULT_MAX_ITEMS,
+        delimiter: str = "/",
+        prefix: str = "",
+        include_self: bool = False,
+        versions: bool = False,
+        recursive: bool = False,
     ) -> List[Union[CommonPrefixInfo, ListedObject, ListedObjectVersion]]:
         if versions:
             raise ValueError(
@@ -2171,7 +2171,7 @@ class TosFileSystem(FsspecCompatibleFS):
             while is_truncated:
 
                 def _call_list_objects_type2(
-                        continuation_token: str = continuation_token,
+                    continuation_token: str = continuation_token,
                 ) -> ListObjectType2Output:
                     return self.tos_client.list_objects_type2(
                         bucket,
@@ -2204,7 +2204,7 @@ class TosFileSystem(FsspecCompatibleFS):
                     key.rstrip("/") + "/",
                     start_after=key.rstrip("/") + "/",
                     max_keys=1,
-                    ),
+                ),
                 max_retry_num=self.max_retry_num,
             )
             return len(resp.contents) > 0
@@ -2233,7 +2233,7 @@ class TosFileSystem(FsspecCompatibleFS):
                     key.rstrip("/") + "/",
                     delimiter="/",
                     max_keys=1,
-                    ),
+                ),
                 max_retry_num=self.max_retry_num,
             )
             if len(resp.contents) > 0:
@@ -2311,7 +2311,7 @@ class TosFileSystem(FsspecCompatibleFS):
 
     @staticmethod
     def _fill_dir_info(
-            bucket: str, common_prefix: Optional[CommonPrefixInfo], key: str = ""
+        bucket: str, common_prefix: Optional[CommonPrefixInfo], key: str = ""
     ) -> dict:
         name = "/".join(
             [bucket, common_prefix.prefix[:-1] if common_prefix else key]
@@ -2334,10 +2334,10 @@ class TosFileSystem(FsspecCompatibleFS):
             "LastModified": obj.last_modified,
         }
         if (
-                isinstance(obj, ListedObjectVersion)
-                and versions
-                and obj.version_id
-                and obj.version_id != "null"
+            isinstance(obj, ListedObjectVersion)
+            and versions
+            and obj.version_id
+            and obj.version_id != "null"
         ):
             result["name"] += f"?versionId={obj.version_id}"
         return result
@@ -2358,14 +2358,14 @@ class TosFile(AbstractBufferedFile):
     """File-like operations for TOS."""
 
     def __init__(
-            self,
-            fs: TosFileSystem,
-            path: str,
-            mode: str = "rb",
-            block_size: Union[int, str] = "default",
-            autocommit: bool = True,
-            cache_type: str = "readahead",
-            **kwargs: Any,
+        self,
+        fs: TosFileSystem,
+        path: str,
+        mode: str = "rb",
+        block_size: Union[int, str] = "default",
+        autocommit: bool = True,
+        cache_type: str = "readahead",
+        **kwargs: Any,
     ):
         """Instantiate a TOS file."""
         bucket, key, path_version_id = fs._split_path(path)
@@ -2389,7 +2389,7 @@ class TosFile(AbstractBufferedFile):
         self.append_block = False
         self.append_offset = 0
         self.buffer: Optional[io.BytesIO] = io.BytesIO()
-        self.parts = []
+        self.parts: list = []
         self.upload_id = None
         self.part_number = 1
 
@@ -2409,9 +2409,8 @@ class TosFile(AbstractBufferedFile):
                 else:
                     raise e
 
-
     def _check_init_params(
-            self, key: str, path: str, mode: str, block_size: Union[int, str]
+        self, key: str, path: str, mode: str, block_size: Union[int, str]
     ) -> None:
         if not key:
             raise ValueError("Attempt to open non key-like path: %s" % path)
@@ -2459,14 +2458,16 @@ class TosFile(AbstractBufferedFile):
             self._append_chunk()
         else:
             if (
-                    self.autocommit
-                    and final
-                    and self.tell()
-                    < min(self.blocksize, self.fs.multipart_threshold)
+                self.autocommit
+                and final
+                and self.tell() < min(self.blocksize, self.fs.multipart_threshold)
             ):
                 # only happens when closing small file, use one-shot PUT
                 pass
             else:
+                if self.buffer is None:
+                    self.buffer = io.BytesIO()
+
                 self.buffer.seek(0)
                 content = self.buffer.read()
                 part = retryable_func_executor(
@@ -2528,11 +2529,11 @@ class TosFile(AbstractBufferedFile):
         def fetch() -> bytes:
             with io.BytesIO() as temp_buffer:
                 for chunk in self.fs.tos_client.get_object(
-                        self.bucket,
-                        self.key,
-                        self.version_id,
-                        range_start=start,
-                        range_end=end,
+                    self.bucket,
+                    self.key,
+                    self.version_id,
+                    range_start=start,
+                    range_end=end,
                 ):
                     temp_buffer.write(chunk)
                 return temp_buffer.getvalue()
@@ -2552,7 +2553,7 @@ class TosFile(AbstractBufferedFile):
                     max_retry_num=self.fs.max_retry_num,
                 )
                 self.fs.touch(self.path, **self.kwargs)
-        elif self.upload_id is None:
+        elif self.upload_id is None and self.buffer is not None:
             logger.debug("One-shot upload of %s", self)
             self.buffer.seek(0)
             data = self.buffer.read()
@@ -2562,7 +2563,7 @@ class TosFile(AbstractBufferedFile):
                 ),
                 max_retry_num=self.fs.max_retry_num,
             )
-        else:
+        elif self.upload_id is not None:
             logger.debug("Complete multi-part upload for %s ", self)
             retryable_func_executor(
                 lambda: self.fs.tos_client.complete_multipart_upload(
