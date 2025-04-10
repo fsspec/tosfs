@@ -2543,7 +2543,7 @@ class TosFile(AbstractBufferedFile):
     def commit(self) -> None:
         """Complete multipart upload or PUT."""
         logger.debug("Commit %s", self)
-        if self.tell() == 0:
+        if self.tell() == 0 and self.upload_id is not None:
             if self.buffer is not None:
                 logger.debug("Empty file committed %s", self)
                 retryable_func_executor(
