@@ -209,7 +209,14 @@ class UrlCredentialsProvider(CredentialsProvider):
                 if res is not None:
                     return res
 
-                res = requests.get(self.credential_url, timeout=30)
+                from tosfs.retry import retryable_func_executor
+
+                res = retryable_func_executor(
+                    requests.get,
+                    args=(self.credential_url,),
+                    kwargs={"timeout": 60},
+                    max_retry_num=3,
+                )
                 res_body = res.json()
                 self.credentials = Credentials(
                     res_body.get("AccessKeyId"),
@@ -264,7 +271,14 @@ class NoLockUrlCredentialsProvider(CredentialsProvider):
             if res is not None:
                 return res
 
-            res = requests.get(self.credential_url, timeout=30)
+            from tosfs.retry import retryable_func_executor
+
+            res = retryable_func_executor(
+                requests.get,
+                args=(self.credential_url,),
+                kwargs={"timeout": 60},
+                max_retry_num=3,
+            )
             res_body = res.json()
             self.credentials = Credentials(
                 res_body.get("AccessKeyId"),
