@@ -230,8 +230,8 @@ class UrlCredentialsProvider(CredentialsProvider):
                 return self.credentials
             except JSONDecodeError as e:
                 logger.error(
-                    f"Failed to parse the response from the url: {self.credential_url}, "
-                    f"error: {e}, detail: {e.doc}"
+                    f"Failed to parse the response from the url: "
+                    f"{self.credential_url}, error: {e}, detail: {e.doc}"
                 )
                 if self.expires is not None and (
                     datetime.now().timestamp() < self.expires.timestamp()
@@ -308,7 +308,7 @@ class NoLockUrlCredentialsProvider(CredentialsProvider):
                 f"error: {e}, detail: {e.doc}"
             )
             if self.expires is not None and (
-                    datetime.now().timestamp() < self.expires.timestamp()
+                datetime.now().timestamp() < self.expires.timestamp()
             ):
                 return self.credentials
             raise TosfsCertificationError(
@@ -319,7 +319,7 @@ class NoLockUrlCredentialsProvider(CredentialsProvider):
                 datetime.now().timestamp() < self.expires.timestamp()
             ):
                 return self.credentials
-            raise TosfsCertificationError("Get token failed") from e
+            raise TosfsCertificationError(f"Get token failed: {e}") from e
 
     def _try_get_credentials(self) -> Optional[Credentials]:
         if self.expires is None or self.credentials is None:
