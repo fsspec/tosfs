@@ -94,6 +94,26 @@ service_info_map = {
         SOCKET_TIMEOUT_DEFAULT_SECONDS,
         "http",
     ),
+    "cn-beijing-selfdrive": ServiceInfo(
+        OPEN_API_HOST,
+        {
+            ACCEPT_HEADER_KEY: ACCEPT_HEADER_JSON_VALUE,
+        },
+        Credentials("", "", "emr", "cn-beijing-selfdrive"),
+        CONNECTION_TIMEOUT_DEFAULT_SECONDS,
+        SOCKET_TIMEOUT_DEFAULT_SECONDS,
+        "http",
+    ),
+    "cn-shanghai-autodriving": ServiceInfo(
+        "emr.cn-shanghai-autodriving.volcengineapi.com",
+        {
+            ACCEPT_HEADER_KEY: ACCEPT_HEADER_JSON_VALUE,
+        },
+        Credentials("", "", "emr", "cn-shanghai-autodriving"),
+        CONNECTION_TIMEOUT_DEFAULT_SECONDS,
+        SOCKET_TIMEOUT_DEFAULT_SECONDS,
+        "https",
+    ),
 }
 
 api_info = {
