@@ -112,7 +112,7 @@ service_info_map = {
         Credentials("", "", "emr", "cn-shanghai-autodriving"),
         CONNECTION_TIMEOUT_DEFAULT_SECONDS,
         SOCKET_TIMEOUT_DEFAULT_SECONDS,
-        "http",
+        "https",
     ),
 }
 
