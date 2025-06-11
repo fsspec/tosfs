@@ -114,6 +114,16 @@ service_info_map = {
         SOCKET_TIMEOUT_DEFAULT_SECONDS,
         "https",
     ),
+    "cn-beijing-autodriving": ServiceInfo(
+        "emr.cn-beijing-autodriving.volcengineapi.com",
+        {
+            ACCEPT_HEADER_KEY: ACCEPT_HEADER_JSON_VALUE,
+        },
+        Credentials("", "", "emr", "cn-beijing-autodriving"),
+        CONNECTION_TIMEOUT_DEFAULT_SECONDS,
+        SOCKET_TIMEOUT_DEFAULT_SECONDS,
+        "https",
+    ),
 }
 
 api_info = {
