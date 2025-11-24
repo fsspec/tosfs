@@ -28,7 +28,7 @@ jobs:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
         fsspec-version: ["2023.5.0", "2024.9.0"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
