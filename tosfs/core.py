@@ -227,6 +227,7 @@ class TosFileSystem(FsspecCompatibleFS):
             Additional arguments.
 
         """
+        self.endpoint = endpoint
         if endpoint_url is not None:
             warnings.warn(
                 "The 'endpoint_url' parameter is deprecated and will be removed"
@@ -234,7 +235,7 @@ class TosFileSystem(FsspecCompatibleFS):
                 DeprecationWarning,
                 stacklevel=2,
             )
-            endpoint = endpoint_url
+            self.endpoint = endpoint_url
 
         self.tos_client = tos.TosClientV2(
             key,
@@ -2268,7 +2269,7 @@ class TosFileSystem(FsspecCompatibleFS):
         key, _, version_id = keypart.partition("?versionId=")
 
         if self.tag_enabled:
-            self.bucket_tag_mgr.add_bucket_tag(bucket)
+            self.bucket_tag_mgr.add_bucket_tag(bucket, self.endpoint)
 
         return (
             bucket,

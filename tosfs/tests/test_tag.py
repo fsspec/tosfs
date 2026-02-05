@@ -36,7 +36,7 @@ def test_bucket_tag_action(tosfs, bucket, temporary_workspace):
         return
 
     tag_mgr.cached_bucket_set = set()
-    tag_mgr.add_bucket_tag(bucket)
+    tag_mgr.add_bucket_tag(bucket, "https://example.com/tag-service")
     sleep(10)
     assert os.path.exists(TAGGED_BUCKETS_FILE)
     with open(TAGGED_BUCKETS_FILE, "r") as f:
