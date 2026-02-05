@@ -220,7 +220,6 @@ class BucketTagAction(Service):
         """Put tag for bucket."""
         params = {
             "Bucket": bucket,
-            "Lance": "false",
         }
 
         try:
