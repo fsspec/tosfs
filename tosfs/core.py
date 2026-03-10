@@ -240,7 +240,7 @@ class TosFileSystem(FsspecCompatibleFS):
         self.tos_client = tos.TosClientV2(
             key,
             secret,
-            endpoint,
+            self.endpoint,
             region,
             security_token=session_token,
             max_retry_count=0,
