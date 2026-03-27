@@ -2277,15 +2277,55 @@ class TosFileSystem(FsspecCompatibleFS):
             version_id if self.version_aware and version_id else None,
         )
 
+    @staticmethod
+    def _extract_bucket_type(bucket_type_resp: Any) -> Optional[str]:
+        if bucket_type_resp is None:
+            return None
+
+        # old tos sdk: directly returns str
+        if isinstance(bucket_type_resp, str):
+            return bucket_type_resp
+
+        # new tos sdk: GetBucketTypeOutput / HeadBucketOutput
+        bucket_type = getattr(bucket_type_resp, "bucket_type", None)
+        if bucket_type:
+            return bucket_type
+
+        # possible newer shape: GetBucketInfoOutput.bucket_info.bucket_type
+        bucket_info = getattr(bucket_type_resp, "bucket_info", None)
+        if bucket_info is not None:
+            return getattr(bucket_info, "bucket_type", None)
+
+        return None
+
     def _get_bucket_type(self, bucket: str) -> str:
-        bucket_type = retryable_func_executor(
-            lambda: self.tos_client._get_bucket_type(bucket),
-            max_retry_num=self.max_retry_num,
-        )
+        bucket_type_resp: Any
+
+        get_bucket_type = getattr(self.tos_client, "get_bucket_type", None)
+        legacy_get_bucket_type = getattr(self.tos_client, "_get_bucket_type", None)
+
+        if callable(get_bucket_type):
+            bucket_type_resp = retryable_func_executor(
+                lambda: get_bucket_type(bucket),
+                max_retry_num=self.max_retry_num,
+            )
+        elif callable(legacy_get_bucket_type):
+            bucket_type_resp = retryable_func_executor(
+                lambda: legacy_get_bucket_type(bucket),
+                max_retry_num=self.max_retry_num,
+            )
+        else:
+            bucket_type_resp = retryable_func_executor(
+                lambda: self.tos_client.head_bucket(bucket),
+                max_retry_num=self.max_retry_num,
+            )
+
+        bucket_type = self._extract_bucket_type(bucket_type_resp)
         if not bucket_type:
             return TOS_BUCKET_TYPE_FNS
 
         return bucket_type
+
 
     def _is_hns_bucket(self, bucket: str) -> bool:
         return self._get_bucket_type(bucket) == TOS_BUCKET_TYPE_HNS
